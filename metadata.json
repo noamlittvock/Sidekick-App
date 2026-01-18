@@ -1,0 +1,7 @@
+{
+  "name": "Producer's Sidekick",
+  "description": "The ultimate utility app for music producers. Features Tap Tempo, BPM detection, Key finding, Musical Math converters, and AI-powered Voice-to-MIDI sketching.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
