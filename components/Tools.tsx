@@ -11,6 +11,11 @@ const noteFromPitch = (frequency: number) => {
   return Math.round(noteNum) + 69;
 };
 
+const noteNameFromNumber = (noteNum: number) => {
+  const index = ((noteNum % 12) + 12) % 12;
+  return NOTES[index];
+};
+
 const frequencyFromNoteNumber = (note: number) => {
   return 440 * Math.pow(2, (note - 69) / 12);
 };
@@ -44,6 +49,14 @@ const Tools: React.FC = () => {
   const [pitch, setPitch] = useState<{ note: string; cents: number; freq: number } | null>(null);
   const requestRef = useRef<number>(0);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   // --- Tap Tempo Logic ---
   const handleTap = () => {
@@ -130,7 +143,7 @@ const Tools: React.FC = () => {
 
     if (ac > -1) {
       const noteNum = noteFromPitch(ac);
-      const noteName = NOTES[noteNum % 12];
+      const noteName = noteNameFromNumber(noteNum);
       const cents = centsOffFromPitch(ac, noteNum);
       setPitch({
         note: `${noteName}${Math.floor(noteNum / 12) - 1}`,
@@ -145,6 +158,9 @@ const Tools: React.FC = () => {
     if (isTunerActive) {
       setIsTunerActive(false);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      analyserRef.current = null;
       setPitch(null);
       return;
     }
@@ -156,6 +172,7 @@ const Tools: React.FC = () => {
       analyser.fftSize = 2048;
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
+      streamRef.current = stream;
       analyserRef.current = analyser;
       setIsTunerActive(true);
       updatePitch();
@@ -175,7 +192,7 @@ const Tools: React.FC = () => {
             <h2 className="text-white text-lg font-bold">Tempo Monitor</h2>
             <p className="text-app-subtext text-sm mt-1">Tap along to the beat</p>
           </div>
-          <button onClick={resetTap} className="p-2 bg-app-surface rounded-full text-app-subtext hover:text-white transition-colors border border-white/5">
+          <button onClick={resetTap} aria-label="Reset tap tempo" className="p-2 bg-app-surface rounded-full text-app-subtext hover:text-white transition-colors border border-white/5">
             <RotateCcw size={16} />
           </button>
         </div>
@@ -252,9 +269,10 @@ const Tools: React.FC = () => {
                 <h3 className="font-bold text-white">Pitch Calculator</h3>
              </div>
              <button 
-               onClick={() => setIsHzToNote(!isHzToNote)}
-               className="text-xs font-bold text-app-accent bg-app-accentDim px-3 py-1.5 rounded-full hover:bg-app-accent hover:text-white transition-colors"
-             >
+            onClick={() => setIsHzToNote(!isHzToNote)}
+            aria-label="Swap pitch conversion direction"
+            className="text-xs font-bold text-app-accent bg-app-accentDim px-3 py-1.5 rounded-full hover:bg-app-accent hover:text-white transition-colors"
+          >
                Swap
              </button>
            </div>
@@ -336,6 +354,7 @@ const Tools: React.FC = () => {
           </div>
           <button 
             onClick={toggleTuner}
+            aria-label={isTunerActive ? 'Stop tuner microphone' : 'Start tuner microphone'}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isTunerActive ? 'bg-app-accent text-white shadow-[0_0_20px_#3b82f6]' : 'bg-app-surface text-app-subtext hover:text-white'}`}
           >
             {isTunerActive ? <Mic size={22} /> : <MicOff size={22} />}
@@ -364,7 +383,7 @@ const Tools: React.FC = () => {
                  <div 
                    className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow-[0_0_10px_currentColor] transition-all duration-150 ease-out border-2 border-app-card ${Math.abs(pitch.cents) < 5 ? 'bg-app-accent text-app-accent left-1/2' : 'bg-red-500 text-red-500'}`}
                    style={{ 
-                     left: `calc(50% + ${pitch.cents * 1.5}px)`,
+                     left: `calc(50% + ${Math.max(-50, Math.min(50, pitch.cents)) * 1.5}px)`,
                      transform: 'translate(-50%, -50%)'
                    }} 
                  />
